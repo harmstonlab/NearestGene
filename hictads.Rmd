@@ -1,0 +1,141 @@
+---
+title: "hictads"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+fanc dump --only-intra mNPC_GSE96107_f1_40kb_d0.hic > mNPC_GSE96107_f1_40kb_d0.txt
+
+```{r}
+library(BSgenome.Mmusculus.UCSC.mm10)
+
+for(chr in paste("chr", c(6:19, "X", "Y"), sep="")){
+
+binsize=40000
+starts = seq(1, seqlengths(Mmusculus)[chr], by=binsize)
+
+x = read.delim(paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".matrix", sep=""), header=FALSE)
+regions = read.delim(paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".regions", sep=""), header=FALSE)
+
+#x.matrix = matrix(0, ncol=nrow(starts), nrow=nrow(starts))
+x.matrix = matrix(0, ncol=length(starts), nrow=length(starts))
+
+# this might be x[i,1]-1 and x[i,2]-1
+for(i in 1:nrow(x) ){
+  xind = which(starts == regions[ x[i,1], 2] ) + 1
+  yind = which(starts == regions[ x[i,2], 2] ) + 1
+  x.matrix[xind,yind] = x[i,3]
+}
+x.matrix.df = as.data.frame(x.matrix)
+
+regions.df = data.frame(chr=chr, start=starts-1, ends=starts+binsize-1)
+regions.df[nrow(regions.df),'ends'] =  seqlengths(Mmusculus)[chr]
+
+result = cbind(regions.df, x.matrix.df)
+write.table(result, paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".mat", sep=""), sep="\t",quote=FALSE, col.names = FALSE, row.names = FALSE)
+}
+```
+
+```{r}
+source("/home/shared/software/TopDom/TopDom_v0.0.2.R")
+
+for(chr in paste("chr", c(1:19, "X", "Y"), sep="")){
+
+  #chr="chr1"
+for(i in c(5, 10, 15, 20)){
+  TopDom(matrix.file=paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".mat", sep=""), window.size=i, outFile=paste("mNPC_GSE96107_f1_40kb_d0_", chr, "_w", i, sep=""))
+
+}
+
+}
+
+```
+
+
+
+```{r}
+x = read.delim(paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".matrix", sep=""), header=FALSE)
+regions = read.delim(paste("mNPC_GSE96107_f1_40kb_d0_", chr, ".regions", sep=""), header=FALSE)
+```
+
+
+
+#### Human 
+
+##### Cardiac muscle
+ 
+```{r}
+library(BSgenome.Hsapiens.UCSC.hg19)
+
+for(chr in paste("chr", c(1:22, "X", "Y"), sep="")){
+  binsize=40000
+  starts = seq(1, seqlengths(Hsapiens)[chr], by=binsize)
+  x = read.delim(paste("cm_hic_hg19_40k_d0_", chr, ".matrix", sep=""), header=FALSE)
+  regions = read.delim(paste("cm_hic_hg19_40k_d0_", chr, ".regions", sep=""), header=FALSE)
+
+  x.matrix = matrix(0, ncol=length(starts), nrow=length(starts))
+
+  for(i in 1:nrow(x) ){
+    xind = which(starts == regions[ x[i,1], 2] ) + 1
+    yind = which(starts == regions[ x[i,2], 2] ) + 1
+    x.matrix[xind,yind] = x[i,3]
+  }
+  x.matrix.df = as.data.frame(x.matrix)
+
+  regions.df = data.frame(chr=chr, start=starts-1, ends=starts+binsize-1)
+  regions.df[nrow(regions.df),'ends'] =  seqlengths(Hsapiens)[chr]
+  result = cbind(regions.df, x.matrix.df)
+  write.table(result, paste("cm_hic_hg19_40k_d0_", chr, ".mat", sep=""), sep="\t",quote=FALSE, col.names = FALSE, row.names = FALSE)
+}
+```
+
+
+
+
+##### IPSC 
+ 
+```{r}
+library(BSgenome.Hsapiens.UCSC.hg19)
+
+for(chr in paste("chr", c(1:22, "X", "Y"), sep="")){
+  binsize=40000
+  starts = seq(1, seqlengths(Hsapiens)[chr], by=binsize)
+  x = read.delim(paste("ipsc_hic_hg19_40k_d0_", chr, ".matrix", sep=""), header=FALSE)
+  regions = read.delim(paste("ipsc_hic_hg19_40k_d0_", chr, ".regions", sep=""), header=FALSE)
+
+  x.matrix = matrix(0, ncol=length(starts), nrow=length(starts))
+
+  for(i in 1:nrow(x) ){
+    xind = which(starts == regions[ x[i,1], 2] ) + 1
+    yind = which(starts == regions[ x[i,2], 2] ) + 1
+    x.matrix[xind,yind] = x[i,3]
+  }
+  x.matrix.df = as.data.frame(x.matrix)
+
+  regions.df = data.frame(chr=chr, start=starts-1, ends=starts+binsize-1)
+  regions.df[nrow(regions.df),'ends'] =  seqlengths(Hsapiens)[chr]
+  result = cbind(regions.df, x.matrix.df)
+  write.table(result, paste("ipsc_hic_hg19_40k_d0_", chr, ".mat", sep=""), sep="\t",quote=FALSE, col.names = FALSE, row.names = FALSE)
+}
+```
+
+```{r}
+source("/home/shared/software/TopDom/TopDom_v0.0.2.R")
+
+for(chr in paste("chr", c(1:22, "X", "Y"), sep="")){
+  for(i in c(5, 10, 15, 20)){
+    TopDom(matrix.file=paste("cm_hic_hg19_40k_d0_", chr, ".mat", sep=""), window.size=i, outFile=paste("cm_hic_hg19_40k_d0_", chr, "_w", i, sep=""))
+  }
+}
+
+source("/home/shared/software/TopDom/TopDom_v0.0.2.R")
+
+for(chr in paste("chr", c(1:22, "X", "Y"), sep="")){
+  for(i in c(5, 10, 15, 20)){
+    TopDom(matrix.file=paste("ipsc_hic_hg19_40k_d0_", chr, ".mat", sep=""), window.size=i, outFile=paste("ipsc_hic_hg19_40k_d0_", chr, "_w", i, sep=""))
+  }
+}
+```
