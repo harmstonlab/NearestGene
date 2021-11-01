@@ -1,0 +1,41 @@
+---
+title: "performance"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+
+performance = data.frame(cellline=c('ipsc', 'ipsc', 
+                                    'cm', 'cm', 
+                                    rep('ipsc', 8), 
+                                    rep('cm', 8)),
+                         comparison=c('nearest', 'nearest expressed',
+                                      'nearest', 'nearest expressed',
+                                      rep('nearest tad', 4), rep('nearest expressed tad', 4), rep('nearest tad', 4), rep('nearest expressed tad', 4)),
+                         ppv = c(12.05, 12.22, 
+                                 15.18, 15.35,
+                                 13.00, 12.85, 12.77, 12.69, 13.00, 12.91, 12.91, 12.86, 
+                                 16.43, 16.40, 16.23, 16.1,
+                                 16.80, 16.78, 16.58, 16.49
+                                 
+                                 
+                                 ),
+                         w = c(0, 0, 0, 0, 
+                               5, 10, 15, 20, 5, 10, 15, 20,
+                               5, 10, 15, 20, 5, 10, 15, 20)
+                         )
+performance$w = factor(performance$w, c(0, 5, 10, 15, 20))
+
+x = ggplot(performance, aes(x=comparison, y=ppv, shape=w)) + geom_point() + theme_bw()
+x + facet_grid(~cellline)
+```
+
+```{r}
+sessionInfo()
+```
