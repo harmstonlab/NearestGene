@@ -1,0 +1,194 @@
+---
+title: "Figure2"
+output: html_document
+---
+
+```{r global_options, echo=FALSE}
+  short=TRUE #if short==TRUE, do not echo code chunks
+  debug=FALSE
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+library(rtracklayer)
+  library(reshape2)
+  library(grid)
+  library(ggplot2)
+library(GenomicRanges)
+
+```
+
+```{r, echo=FALSE, message=FALSE}
+library(Gviz)
+library(GenomicFeatures)
+library(biomaRt)
+library(ggplot2)
+library(GenomicInteractions)
+library(rtracklayer)
+```
+
+```{r, message=FALSE}
+mm10.ens.db = makeTxDbFromGFF("~/Downloads/Mus_musculus.GRCm38.102.chr.gtf")
+ens.genes = genes(mm10.ens.db)
+mouse = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL", dataset="mmusculus_gene_ensembl", host = "asia.ensembl.org",  version="102")
+
+ens.genes = ens.genes[ seqnames(ens.genes) %in% c(paste("chr", 1:19, sep=""), "chrX", "chrY")]
+bm.annotations = getBM(attributes=c("ensembl_gene_id", "gene_biotype", "mgi_symbol"), mart=mouse, filters="ensembl_gene_id", values=ens.genes$gene_id, uniqueRows=TRUE)
+ens.genes$mgi_symbol = bm.annotations$mgi_symbol[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes$gene_biotype = bm.annotations$gene_biotype[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes$description = bm.annotations$description[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes$status = bm.annotations$status[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes = ens.genes[ seqnames(ens.genes) %in% c(paste("chr", 1:22, sep=""), "chrX", "chrY")]
+ens.genes = ens.genes[ ens.genes$gene_biotype %in% c( "protein_coding", "miRNA" ) ]
+# TODO DO I NEED TO REMOVE THESE IN THE NEW VERSION?
+ens.genes = ens.genes[ ens.genes$mgi_symbol != "Gm10290"] # this is a misannotated pseudogene
+ens.genes = ens.genes[ ens.genes$mgi_symbol != "Gm3272"] # this is a misannotated pseudogene
+ens.genes = ens.genes[ ens.genes$mgi_symbol != "4933436C20Rik"] # this is a misannotated pseudogenes
+ens.genes = ens.genes[ ens.genes$gene_id != "ENSMUSG00000093049"]
+```
+
+```{r eval=FALSE}
+ch.one = import.chain("mm5ToMm8.over.chain")
+ch.two = import.chain("mm8ToMm10.over.chain")
+ch.three = import.chain("mm9ToMm10.over.chain")
+```
+
+Liftover the elements in Jeong et al 2006 - mm5 
+
+```{r, eval=FALSE}
+gr = c(GRanges("chr5", IRanges(26874570, 26875234), name = "SFPE1"),
+       GRanges("chr5", IRanges(26857296, 26858042), name="SFPE2"),
+       GRanges("chr5", IRanges(26858062, 26858595), name="SBE1"),
+       GRanges("chr5", IRanges(27274453, 27275587), name="SBE2"),
+       GRanges("chr5", IRanges(27291667, 27292041), name="SBE3"),
+       GRanges("chr5", IRanges(27184220, 27185333), name="SBE4"))
+
+results = liftOver(gr, ch.one)
+gr.mm8 = do.call(c, results)
+
+results = liftOver(gr.mm8, ch.two)
+gr.mm10 = do.call(c, results)
+```
+
+Now liftover elements from SAGAI et al - mm8
+```{r eval=FALSE}
+gr = c(GRanges("chr5", IRanges(29412098, 29413397 ), name="MRCS1"),
+       GRanges("chr5", IRanges(29472668, 29473966), name="MFCS3"),
+       GRanges("chr5", IRanges(29513865, 29515164), name="MFCS4"),
+       GRanges("chr5", IRanges(29538288, 29539587), name="MACS1"),
+       GRanges("chr5", IRanges(29602023, 29603322), name="MFCS2"),
+       GRanges("chr5", IRanges(29641190, 29642489), name="ZRS/MFCS1"))
+results = liftOver(gr, ch.two)
+gr.mm10 = c(gr.mm10, do.call(c, results))
+
+gr.mm10= c(gr.mm10, GRanges("chr5", IRanges(28562649, 28564448), name = "SLGE"))
+```
+
+Export the results 
+```{r eval=FALSE}
+export.bed(gr.mm10, "ssh_enhancers.bed")
+```
+
+```{r}
+gr.mm10 = import.bed("resources/ssh_enhancers.bed")
+
+distance(gr.mm10[gr.mm10$name=='ZRS/MFCS1'], ens.genes[ens.genes$mgi_symbol=='Shh'])
+```
+
+```{r}
+foo = ens.genes[nearest(gr.mm10, ens.genes)]
+table(foo$mgi_symbol)
+sum(foo$mgi_symbol != "Shh")/ length(foo)
+
+gr.mm10[which(foo$mgi_symbol != "Shh")]
+```
+
+
+
+Ok so we need to make a figure of the SHH regulatory domain in mouse (mm10). 
+
+```{r figure 2}
+genome = "mm10"
+chr="chr5"
+start=28000000 
+end = 30000000 
+axisTrack <- GenomeAxisTrack()
+
+geneTrack = AnnotationTrack(ens.genes, genome=genome, name="Ensembl Genes", id=ifelse(ens.genes$mgi_symbol=="", " ", ens.genes$mgi_symbol))
+displayPars(geneTrack) <- list(showFeatureId=TRUE, fill = "deepskyblue", fontcolor.feature = "black", fontsize=9, just.group="below")
+
+galGal4.70.50.density.bw = import("./resources/HCNE_density_mm10_galGal4_70pc_50col.bigWig")# obtained from ancora
+
+density_chicken <- DataTrack(range = galGal4.70.50.density.bw, genome = genome, type = "horizon", chromosome = chr, name = "70%/50bp",  fill.horizon = c("#B41414", "#E03231", "#F7A99C", "yellow", "orange", "red"), 
+                                      separator=1, lwd=0.5, ylim=c(0,12),
+                                      horizon.origin=0, horizon.scale=6)
+
+cnes = import("./resources/HCNE_mm10_galGal4_70pc_50col.bed") # obtained from ancora 
+cneTrack = AnnotationTrack(reduce(subsetByOverlaps(cnes, GRanges(chr, IRanges(start - 500000, end + 500000)))), stacking="squish", genome=genome, chromosome=chr)
+
+
+shh.gi = GenomicInteractions(anchor1 = rep(GRanges("chr5", IRanges(start=28467256, width=10), strand="*", name="SHH"),length(gr.mm10)), anchor2 = gr.mm10, counts=rep(1, length(gr.mm10)), experiment_name="SHH")
+                             
+intTrack = InteractionTrack(shh.gi) #, chromosome = chr, start=start, end=end)
+
+enhTrack = AnnotationTrack(gr.mm10)
+                       
+
+topdom_tads = read.delim("./resources/mNPC_GSE96107_f1_40kb_d0_chr5_w5.domain", sep="\t")
+topdom_tads = topdom_tads[topdom_tads$tag != 'gap', ]
+topdom_tads.gr = GRanges(topdom_tads$chr, IRanges(topdom_tads$from.coord+1, topdom_tads$to.coord))
+
+strand(topdom_tads.gr) = "*"
+tad_track = AnnotationTrack(topdom_tads.gr)
+displayPars(tad_track) = list(col="black", fill="gray50")
+
+
+tss = resize(ens.genes, fix="start", width=1)[seqnames(ens.genes) == chr]
+tss = ens.genes[seqnames(ens.genes) == chr]
+all.bp = GRanges(chr, IRanges(seq(start, end), width=1))
+n = nearest(all.bp, tss, ignore.strand=TRUE)
+
+all.bp$nearest = ifelse(tss$mgi_symbol[n]=="",
+                        tss$gene_id[n], 
+                        tss$mgi_symbol[n])
+
+nearest.segments = split(all.bp, all.bp$nearest)
+for(i in names(nearest.segments)){
+  print(i)
+  x = reduce(nearest.segments[[i]])
+  x$nearest = i
+  nearest.segments[[i]] = x
+  
+}
+nearest.segments =   do.call(c, unname(nearest.segments))
+
+nearestTrack = AnnotationTrack(nearest.segments, genome=genome, name="NEAREST", id=nearest.segments$nearest)
+
+loc1 = start(resize(ens.genes, fix="start", width=1)[nearest(gr.mm10, ens.genes, ignore.strand=TRUE)])
+loc2 = start(resize(gr.mm10, fix="center", width=1))
+
+foo = GRanges(chr, IRanges(ifelse(loc1<loc2, loc1, loc2), ifelse(loc1<loc2, loc2, loc1)))
+              
+nearestLineTrack = AnnotationTrack(foo, genome=genome, name="NEAREST")
+
+plotTracks(list(axisTrack,
+                density_chicken,
+                tad_track,
+                cneTrack,
+                intTrack,
+                enhTrack, 
+                tad_track, 
+                nearestLineTrack,
+                nearestTrack,
+                geneTrack), chromosome=chr, from=start, to=end)
+
+```
+
+
+
+
+
+```{r}
+sessionInfo()
+```
+
