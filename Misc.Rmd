@@ -1,0 +1,122 @@
+---
+title: "Misc"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(BSgenome.Hsapiens.UCSC.hg38)
+seqlengths(Hsapiens)
+library(GenomicFeatures)
+library(biomaRt)
+
+ensembl.gtf = makeTxDbFromGFF("Homo_sapiens.GRCh38.102.chr.gtf")
+ens.genes = genes(ensembl.gtf)
+human = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL",host="asia.ensembl.org", dataset="hsapiens_gene_ensembl", version="102")
+bm.annotations = getBM(attributes=c("ensembl_gene_id", "gene_biotype", "hgnc_symbol", "description"), mart=human, filters="ensembl_gene_id", values=ens.genes$gene_id, uniqueRows=TRUE)
+ens.genes$hgnc_symbol = bm.annotations$hgnc_symbol[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes$gene_biotype = bm.annotations$gene_biotype[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+ens.genes$description = bm.annotations$description[ match(ens.genes$gene_id, bm.annotations$ensembl_gene_id) ]
+```
+
+
+## MEIS1 
+```{r}
+library(rtracklayer)
+```
+
+```{r}
+foo = import.bed("./resources/Royo.bed")
+
+ch.one = import.chain("./resources/hg18Tohg38.over.chain")
+results = liftOver(foo, ch.one)
+gr.royo = do.call(c, results)
+```
+
+```{r}
+gr.royo$score = foo$score
+gr.royo$name = foo$name
+
+# 1000 means enhancer activity, 100 means no enhancer activity detected
+
+gr.royo.yes = gr.royo[gr.royo$score == 1000]
+
+table(ens.genes[nearest(gr.royo.yes, ens.genes)]$hgnc_symbol)
+table(ens.genes[nearest(gr.royo.yes, resize(ens.genes, fix="start", width=1))]$hgnc_symbol)
+
+```
+
+
+
+## Insights from integrative genome-wide analyses of topological organisation
+
+Confirm distances for the Mifsud section
+
+```{r}
+library("SNPlocs.Hsapiens.dbSNP151.GRCh38")
+snps <- SNPlocs.Hsapiens.dbSNP151.GRCh38
+mifsud <- snpsById(snps, c("rs1736020", "rs1297265", "rs2823286"))
+
+seqlevelsStyle(mifsud) = "UCSC"
+
+distance(mifsud, ens.genes[ens.genes$hgnc_symbol=="NRIP1"])
+distance(mifsud, ens.genes[ens.genes$hgnc_symbol=="USP25"])
+
+distance(mifsud, resize(ens.genes[ens.genes$hgnc_symbol=="NRIP1"], fix="start", width=1))
+distance(mifsud, resize(ens.genes[ens.genes$hgnc_symbol=="USP25"], fix="start", width=1))
+```
+
+
+
+## Confirm distances for the Martin et al 2016 paragraph
+
+```{r}
+martin2016 <- snpsById(snps, c("rs11154801", "rs17066096", "rs7769192", "rs67297943"))
+seqlevelsStyle(martin2016) = "UCSC"
+
+# two distinct sets 
+
+ens.genes[nearest(martin2016.set1, ens.genes)]$hgnc_symbol
+
+martin2016.set1 = martin2016[1]
+martin2016.set2 = martin2016[2:4]
+
+### Firstly, SNPs located within the AHI1 gene, tagged by rs11154801, are correlated with expression of AHI1 and interact with its promoter. These SNPs also interact with other potential candidate genes such as SGK1 and BCLAF1.
+
+ens.genes[nearest(martin2016.set1, ens.genes)]$hgnc_symbol
+
+distance(martin2016.set1, ens.genes[ens.genes$hgnc_symbol=="AHI1"])
+distance(martin2016.set1, ens.genes[ens.genes$hgnc_symbol=="SGK1"])
+distance(martin2016.set1, ens.genes[ens.genes$hgnc_symbol=="BCLAF1"])
+
+distance(martin2016.set1, resize(ens.genes[ens.genes$hgnc_symbol=="AHI1"], fix="start", width=1))
+distance(martin2016.set1, resize(ens.genes[ens.genes$hgnc_symbol=="SGK1"], fix="start", width=1))
+distance(martin2016.set1, resize(ens.genes[ens.genes$hgnc_symbol=="BCLAF1"], fix="start", width=1))
+
+# Secondly, the rs17066096, rs7769192 and rs67297943 SNPs interact with each other and with immune-related genes such as IL20RA, IL22RA2, IFNGR1 and TNFAIP3.
+
+ens.genes[nearest(martin2016.set2, ens.genes)]$hgnc_symbol
+
+distance(martin2016.set2, ens.genes[ens.genes$hgnc_symbol=="TNFAIP3"])
+distance(martin2016.set2, ens.genes[ens.genes$hgnc_symbol=="IL20RA"])
+distance(martin2016.set2, ens.genes[ens.genes$hgnc_symbol=="IL22RA2"])
+distance(martin2016.set2, ens.genes[ens.genes$hgnc_symbol=="IFNGR1"])
+
+distance(martin2016.set2, resize(ens.genes[ens.genes$hgnc_symbol=="TNFAIP3"], fix="start", width=1))
+distance(martin2016.set2, resize(ens.genes[ens.genes$hgnc_symbol=="IL20RA"], fix="start", width=1))
+distance(martin2016.set2, resize(ens.genes[ens.genes$hgnc_symbol=="IL22RA2"], fix="start", width=1))
+distance(martin2016.set2, resize(ens.genes[ens.genes$hgnc_symbol=="IFNGR1"], fix="start", width=1))
+
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
